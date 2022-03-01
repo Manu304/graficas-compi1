@@ -1,0 +1,196 @@
+package com.mrojas.graficoscompi1.analizadores.parser;
+import java_cup.runtime.*;
+import java.util.*;
+import com.mrojas.graficoscompi1.graphics.*;
+import com.mrojas.graficoscompi1.analizadores.*;
+import com.mrojas.graficoscompi1.model.*;
+
+parser code {:
+
+
+    // Connect this parser to a scanner!
+
+    private String graficos = "";
+    private String graficosEjecutar = "";
+    private List<ErrorParser> errores = new LinkedList<>();
+
+
+    public String getGraficos (){
+        return this.graficos;
+    }
+
+    public String getGraficosEjecutar (){
+        return this.graficosEjecutar;
+    }
+
+    public List<ErrorParser> getErrores (){
+        return this.errores;
+    }
+
+    /**
+     * Método al que se llama automáticamente ante algún error sintactico.
+     **/
+    public void syntax_error(Symbol s){
+
+        List<Integer> expected = expected_token_ids();
+        List<String> tokenExpected = new LinkedList<>();
+
+        for (Integer id : expected) {
+            tokenExpected.add(symbl_name_from_id(id));
+        }
+
+        errores.add(new ErrorParser(s.left, s.right, s.value.toString(), tokenExpected));
+
+
+        /*
+        errores.push("Error Sintáctico en la Línea " + (s.left) +
+        " Columna "+s.right+ ". No se esperaba este componente: " +s.value+".");
+        */
+    }
+
+    /**
+     * Método al que se llama automáticamente ante algún error sintáctico
+     * en el que ya no es posible una recuperación de errores.
+     **/
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception{
+        System.out.println("Error síntactico irrecuperable en la Línea " +
+        (s.left)+ " Columna "+s.right+". Componente " + s.value +
+        " no reconocido.");
+    }
+
+
+
+:}
+
+/* TERMINALES PARA NUMEROS */
+terminal Double NUMERO_ENTERO, NUMERO_DECIMAL;
+/* TERMINALES OPERADORES ARITMETICOS */
+terminal SIGNO_MAS, SIGNO_MENOS, SIGNO_POR, SIGNO_DIVISION, PARENTESIS_I, PARENTESIS_D;
+terminal CORCHETE_I, CORCHETE_D, LLAVE_I, LLAVE_D, COMA, PUNTO_COMA, DOS_PUNTOS, UMENOS;
+terminal String STRINGP;
+/* PALABRAS RESERVADAS PARA USO GENERAL DE GRAFICAS */
+terminal String INICIO_DECLARACION, TIPO_GRAFICO, EJECUTAR;
+terminal String TITULO_GRAFICO, UNIR;
+/* PALABRAS RESERVADAS GRAFICA DE BARRAS */
+terminal String EJEX, EJEY;
+/* PALABRAS RESERVADAS GRAFICA DE PIE */
+terminal String ETIQUETAS, VALORES, TIPO, CANTIDAD, PORCENTAJE, TOTAL, EXTRA;
+
+
+/*no-terminales para inicio de la app*/
+non terminal inicio;
+non terminal String declaracion_grafico, ejecutar_grafico;
+
+/*no-terminales para atributos de las graficas*/
+non terminal String atributos, atributo;
+non terminal String a_titulo, a_unir, a_ejex, a_ejey, a_etiquetas, a_valores, a_tipo, a_total, a_extra;
+non terminal String pares_ordenados, val_number, val_string;
+
+
+/*no-terminales para expresiones matematicas*/
+non terminal Double math_operation;
+
+/* PRECENDENCIA DE OPERADORES MATEMATICOS */
+precedence left SIGNO_MAS, SIGNO_MENOS;
+precedence left SIGNO_POR, SIGNO_DIVISION;
+precedence right UMENOS;
+
+/* The grammar */
+start with inicio;
+
+inicio ::= declaracion_grafico:graphics ejecutar_grafico:eject
+                                                                    {:
+                                                                    graficos = graphics;
+                                                                    graficosEjecutar = eject;
+                                                                    :}
+    ;
+
+declaracion_grafico ::=
+        INICIO_DECLARACION TIPO_GRAFICO:tipo LLAVE_I atributos:atr LLAVE_D  declaracion_grafico:others      {:RESULT=tipo+"{\n"+atr+"\n}\n"+others;:}
+    |   INICIO_DECLARACION TIPO_GRAFICO:tipo LLAVE_I atributos:atr LLAVE_D                                  {:RESULT=tipo+"{\n"+atr+"\n}";:}
+    ;
+
+ejecutar_grafico ::=
+        EJECUTAR PARENTESIS_I STRINGP:a PARENTESIS_D PUNTO_COMA ejecutar_grafico:b                          {:RESULT = "Ejecutar("+a+")\n"+b;:}
+    |   EJECUTAR PARENTESIS_I STRINGP:a PARENTESIS_D PUNTO_COMA                                             {:RESULT="Ejecutar(" + a + ")";:}
+    ;
+
+atributos ::=
+        atributo:a PUNTO_COMA atributos:b                                                                   {:RESULT=a+"\n"+b;:}
+    |   atributo:a PUNTO_COMA                                                                               {:RESULT=a;:}
+    |   error atributos
+    ;
+
+atributo ::=
+        a_titulo:a                  {:RESULT = a;:}
+    |   a_unir:a                    {:RESULT = a;:}
+    |   a_ejex:a                    {:RESULT = a;:}
+    |   a_ejey:a                    {:RESULT = a;:}
+    |   a_etiquetas:a               {:RESULT = a;:}
+    |   a_valores:a                 {:RESULT = a;:}
+    |   a_tipo:a                    {:RESULT = a;:}
+    |   a_total:a                   {:RESULT = a;:}
+    |   a_extra:a                   {:RESULT = a;:}
+    ;
+
+a_titulo ::= TITULO_GRAFICO DOS_PUNTOS STRINGP:titulo                           {:RESULT="titulo: "+titulo;:};
+
+a_unir ::= UNIR DOS_PUNTOS CORCHETE_I pares_ordenados:pares CORCHETE_D          {:RESULT="unir:["+pares + "]";:};
+
+a_ejex ::= EJEX DOS_PUNTOS CORCHETE_I val_string:palabras CORCHETE_D            {:RESULT="ejex:["+palabras + "]";:};
+
+a_ejey ::= EJEY DOS_PUNTOS CORCHETE_I val_number:numeros CORCHETE_D             {:RESULT="ejey:["+ numeros + "]";:};
+
+a_etiquetas ::= ETIQUETAS DOS_PUNTOS CORCHETE_I val_string:palabras CORCHETE_D  {:RESULT="etiquetas:["+palabras + "]";:};
+
+a_valores ::= VALORES DOS_PUNTOS CORCHETE_I val_number:numeros CORCHETE_D       {:RESULT="valores:["+ numeros + "]";:};
+
+a_tipo ::= TIPO DOS_PUNTOS CANTIDAD                                             {:RESULT="tipo: CANTIDAD";:}
+    |   TIPO DOS_PUNTOS PORCENTAJE                                              {:RESULT="tipo: PORCENTAJE";:}
+    ;
+
+a_total ::= TOTAL DOS_PUNTOS math_operation:a                                   {:RESULT="total"+a;:};
+
+a_extra ::= EXTRA DOS_PUNTOS STRINGP:palabra                                    {:RESULT="extra: "+palabra;:};
+
+pares_ordenados ::= LLAVE_I math_operation:a COMA math_operation:b LLAVE_D COMA pares_ordenados:c
+                                                                                                    {:
+                                                                                                    String valores = "{"+a+", "+b+"}" + c;
+                                                                                                    RESULT = valores;
+                                                                                                    :}
+    |   LLAVE_I math_operation:a COMA math_operation:b LLAVE_D
+                                                                                                    {:
+                                                                                                    String valores = "{"+a+", "+b+"}";
+                                                                                                    RESULT = valores;
+                                                                                                    :}
+    |   error pares_ordenados
+    ;
+
+val_string ::= STRINGP:a COMA val_string:b
+                                                    {:
+                                                    String valores = a +", " + b;
+                                                    RESULT = valores;
+                                                    :}
+    |   STRINGP:a                                   {:RESULT=a;:}
+    |   error val_string
+    ;
+
+val_number ::= math_operation:a COMA val_number:b   {:
+                                                    String valores = a +", " + b;
+                                                    RESULT = valores;
+                                                    :}
+    |   math_operation:a                            {:RESULT = a.toString();:}
+    |   error val_number
+    ;
+
+math_operation ::=
+        math_operation:a SIGNO_MAS math_operation:b         {:RESULT = a+b;:}
+    |   math_operation:a SIGNO_MENOS math_operation:b       {:RESULT = a-b;:}
+    |   math_operation:a SIGNO_POR math_operation:b         {:RESULT = a*b;:}
+    |   math_operation:a SIGNO_DIVISION math_operation:b    {:RESULT = a/b;:}
+    |   PARENTESIS_I math_operation:a PARENTESIS_D          {:RESULT = a;:}
+    |   SIGNO_MENOS math_operation:a                        {:RESULT = a*-1;:} %prec UMENOS
+    |   NUMERO_ENTERO:a                                     {:RESULT = a;:}
+    |   NUMERO_DECIMAL:a                                    {:RESULT = a;:}
+    /*|   error:e math_operation                              */
+    ;
